@@ -71,17 +71,6 @@ function ChatPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Local state for input since useChat hook isn't working properly
-  const [localInput, setLocalInput] = useState('')
-  const [localMessages, setLocalMessages] = useState([
-    {
-      id: '1',
-      role: 'assistant' as const,
-      content: 'Hello! How can I help you today? I can assist with coding, analysis, research, and much more.',
-    }
-  ])
-  const [localIsLoading, setLocalIsLoading] = useState(false)
-  const [localError, setLocalError] = useState<Error | null>(null)
 
   // Use the AI SDK's useChat hook
   const chatHook = useChat({
@@ -101,14 +90,17 @@ function ChatPage() {
     }
   })
 
-  // Use local state if AI SDK functions are not available
-  const messages = chatHook.messages?.length ? chatHook.messages : localMessages
+  // Local fallback state for when AI SDK is initializing
+  const [localInput, setLocalInput] = useState('')
+  
+  // Use AI SDK chat hook values with fallbacks
+  const messages = chatHook.messages || []
   const input = chatHook.input !== undefined ? chatHook.input : localInput
   const setInput = chatHook.setInput || setLocalInput
-  const handleInputChange = chatHook.handleInputChange || (() => {})
-  const handleSubmit = chatHook.handleSubmit || (() => {})
-  const isLoading = chatHook.isLoading !== undefined ? chatHook.isLoading : localIsLoading
-  const error = chatHook.error || localError
+  const handleInputChange = chatHook.handleInputChange
+  const handleSubmit = chatHook.handleSubmit
+  const isLoading = chatHook.isLoading || false
+  const error = chatHook.error
 
 
   // Convert AI SDK messages to our extended format
@@ -146,46 +138,19 @@ function ChatPage() {
     
     if (!input?.trim()) return
     
-    // If AI SDK is working, use it
-    if (chatHook.handleSubmit && typeof chatHook.handleSubmit === 'function') {
-      // Add file info to input if files are uploaded
-      if (uploadedFiles.length > 0) {
-        const contentWithFiles = input + `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(', ')}`
-        setInput(contentWithFiles)
-        setUploadedFiles([])
-        
-        // Use setTimeout to allow the input update to take effect
-        setTimeout(() => {
-          chatHook.handleSubmit(e)
-        }, 0)
-      } else {
-        // Use the AI SDK's handleSubmit directly
-        chatHook.handleSubmit(e)
-      }
-    } else {
-      // Fallback: just add message to local state
-      const currentInput = input.trim()
-      const userMessage = {
-        id: Date.now().toString(),
-        role: 'user' as const,
-        content: uploadedFiles.length > 0 
-          ? currentInput + `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(', ')}`
-          : currentInput
-      }
-      
-      setLocalMessages(prev => [...prev, userMessage])
-      setInput('') // Clear the input using the unified setInput function
+    // Add file info to input if files are uploaded
+    if (uploadedFiles.length > 0) {
+      const contentWithFiles = input + `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(', ')}`
+      setInput(contentWithFiles)
       setUploadedFiles([])
       
-      // Show a mock response for now
+      // Use setTimeout to allow the input update to take effect
       setTimeout(() => {
-        const assistantMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant' as const,
-          content: `I received your message: "${currentInput}". However, the AI backend is not currently available. Please check the server configuration.`
-        }
-        setLocalMessages(prev => [...prev, assistantMessage])
-      }, 1000)
+        handleSubmit?.(e)
+      }, 0)
+    } else {
+      // Use the AI SDK's handleSubmit directly
+      handleSubmit?.(e)
     }
   }
 
@@ -194,7 +159,7 @@ function ChatPage() {
   }
 
   const handleSuggestionClick = (suggestion: string) => {
-    setInput?.(suggestion)
+    setInput(suggestion)
   }
 
   const handleFilesAdded = (files: File[]) => {
@@ -350,7 +315,7 @@ function ChatPage() {
       </div>
 
       {/* Prompt Suggestions */}
-      {messages.length <= 1 && !input?.trim() && (
+      {messages.length <= 1 && !input.trim() && (
         <div className="shrink-0 border-t bg-muted/30 p-4">
           <div className="mb-2 text-sm text-muted-foreground font-medium">Suggested prompts:</div>
           <div className="flex flex-wrap gap-2">
@@ -397,10 +362,8 @@ function ChatPage() {
           <FileUpload onFilesAdded={handleFilesAdded} multiple accept=".txt,.md,.json,.csv,.pdf">
             <form onSubmit={handleCustomSubmit}>
               <PromptInput
-                value={input || ''}
-                onValueChange={(value) => {
-                  setInput(value)
-                }}
+                value={input}
+                onValueChange={(value) => setInput(value)}
                 onSubmit={() => handleCustomSubmit()}
                 isLoading={isLoading}
                 className="min-h-[60px]"
@@ -421,7 +384,7 @@ function ChatPage() {
                   <Button
                     type="submit"
                     size="sm"
-                    disabled={!input?.trim() || isLoading}
+                    disabled={!input.trim() || isLoading}
                     onClick={(e) => {
                       e.preventDefault()
                       handleCustomSubmit()
