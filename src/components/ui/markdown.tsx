@@ -14,6 +14,7 @@ export type MarkdownProps = {
 }
 
 function parseMarkdownIntoBlocks(markdown: string): string[] {
+  if (!markdown || typeof markdown !== 'string') return []
   const tokens = marked.lexer(markdown)
   return tokens.map((token) => token.raw)
 }
