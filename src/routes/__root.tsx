@@ -19,7 +19,9 @@ export const Route = createRootRouteWithContext<{
         {import.meta.env.MODE === 'development' && (
           <>
             <ReactQueryDevtools buttonPosition='bottom-left' />
-            <TanStackRouterDevtools position='bottom-right' />
+            {import.meta.env.VITE_ROUTER_DEVTOOLS !== 'false' && (
+              <TanStackRouterDevtools position='bottom-right' />
+            )}
           </>
         )}
       </>

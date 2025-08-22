@@ -18,6 +18,7 @@ import {
   Users,
   MessagesSquare,
   ShieldCheck,
+  Bot,
 } from 'lucide-react'
 import { AudioWaveform, Command, GalleryVerticalEnd } from 'lucide-react'
 import { ClerkLogo } from '@/assets/clerk-logo'
@@ -64,6 +65,11 @@ export const sidebarData: SidebarData = {
           title: 'Apps',
           url: '/apps',
           icon: Package,
+        },
+        {
+          title: 'AI Chat',
+          url: '/chat',
+          icon: Bot,
         },
         {
           title: 'Chats',
