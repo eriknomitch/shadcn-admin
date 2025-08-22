@@ -71,13 +71,20 @@ function ChatPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Local state for input since useChat hook isn't working properly
+  const [localInput, setLocalInput] = useState('')
+  const [localMessages, setLocalMessages] = useState([
+    {
+      id: '1',
+      role: 'assistant' as const,
+      content: 'Hello! How can I help you today? I can assist with coding, analysis, research, and much more.',
+    }
+  ])
+  const [localIsLoading, setLocalIsLoading] = useState(false)
+  const [localError, setLocalError] = useState<Error | null>(null)
+
   // Use the AI SDK's useChat hook
-  const { 
-    messages, 
-    sendMessage,
-    isLoading,
-    error
-  } = useChat({
+  const chatHook = useChat({
     api: '/api/chat',
     initialMessages: [
       {
@@ -90,11 +97,19 @@ function ChatPage() {
       console.error('Chat error:', error)
       setConnectionStatus('error')
       setConnectionError(error.message)
+      setLocalError(error)
     }
   })
 
-  // Manage input state ourselves
-  const [input, setInput] = useState('')
+  // Use local state if AI SDK functions are not available
+  const messages = chatHook.messages?.length ? chatHook.messages : localMessages
+  const input = chatHook.input !== undefined ? chatHook.input : localInput
+  const setInput = chatHook.setInput || setLocalInput
+  const handleInputChange = chatHook.handleInputChange || (() => {})
+  const handleSubmit = chatHook.handleSubmit || (() => {})
+  const isLoading = chatHook.isLoading !== undefined ? chatHook.isLoading : localIsLoading
+  const error = chatHook.error || localError
+
 
   // Convert AI SDK messages to our extended format
   const extendedMessages: ExtendedMessage[] = messages.map(msg => ({
@@ -112,6 +127,7 @@ function ChatPage() {
       ]
     } : {})
   }))
+
   
   const suggestedPrompts = [
     'Explain a complex concept',
@@ -130,17 +146,47 @@ function ChatPage() {
     
     if (!input?.trim()) return
     
-    let content = input.trim()
-    if (uploadedFiles.length > 0) {
-      content += `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(', ')}`
+    // If AI SDK is working, use it
+    if (chatHook.handleSubmit && typeof chatHook.handleSubmit === 'function') {
+      // Add file info to input if files are uploaded
+      if (uploadedFiles.length > 0) {
+        const contentWithFiles = input + `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(', ')}`
+        setInput(contentWithFiles)
+        setUploadedFiles([])
+        
+        // Use setTimeout to allow the input update to take effect
+        setTimeout(() => {
+          chatHook.handleSubmit(e)
+        }, 0)
+      } else {
+        // Use the AI SDK's handleSubmit directly
+        chatHook.handleSubmit(e)
+      }
+    } else {
+      // Fallback: just add message to local state
+      const currentInput = input.trim()
+      const userMessage = {
+        id: Date.now().toString(),
+        role: 'user' as const,
+        content: uploadedFiles.length > 0 
+          ? currentInput + `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(', ')}`
+          : currentInput
+      }
+      
+      setLocalMessages(prev => [...prev, userMessage])
+      setInput('') // Clear the input using the unified setInput function
       setUploadedFiles([])
+      
+      // Show a mock response for now
+      setTimeout(() => {
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant' as const,
+          content: `I received your message: "${currentInput}". However, the AI backend is not currently available. Please check the server configuration.`
+        }
+        setLocalMessages(prev => [...prev, assistantMessage])
+      }, 1000)
     }
-
-    // Send the message using the AI SDK
-    sendMessage({ text: content })
-    
-    // Clear the input
-    setInput('')
   }
 
   const handleCopyMessage = (content: string) => {
@@ -148,8 +194,7 @@ function ChatPage() {
   }
 
   const handleSuggestionClick = (suggestion: string) => {
-    // Use the AI SDK's setInput function
-    setInput(suggestion)
+    setInput?.(suggestion)
   }
 
   const handleFilesAdded = (files: File[]) => {
@@ -353,7 +398,9 @@ function ChatPage() {
             <form onSubmit={handleCustomSubmit}>
               <PromptInput
                 value={input || ''}
-                onValueChange={setInput}
+                onValueChange={(value) => {
+                  setInput(value)
+                }}
                 onSubmit={() => handleCustomSubmit()}
                 isLoading={isLoading}
                 className="min-h-[60px]"
@@ -374,7 +421,11 @@ function ChatPage() {
                   <Button
                     type="submit"
                     size="sm"
-                    disabled={!input?.trim() || isLoading || connectionStatus !== 'connected'}
+                    disabled={!input?.trim() || isLoading}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleCustomSubmit()
+                    }}
                   >
                     <Send className="w-4 h-4" />
                   </Button>

@@ -64,9 +64,24 @@ function PromptInput({
   const [internalValue, setInternalValue] = useState(value || "")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Sync internal value when external value changes
+  useEffect(() => {
+    if (value !== undefined) {
+      setInternalValue(value)
+    }
+  }, [value])
+
   const handleChange = (newValue: string) => {
     setInternalValue(newValue)
     onValueChange?.(newValue)
+  }
+
+  const setValue = (newValue: string) => {
+    if (onValueChange && typeof onValueChange === 'function') {
+      onValueChange(newValue)
+    } else {
+      handleChange(newValue)
+    }
   }
 
   return (
@@ -75,7 +90,7 @@ function PromptInput({
         value={{
           isLoading,
           value: value ?? internalValue,
-          setValue: onValueChange ?? handleChange,
+          setValue,
           maxHeight,
           onSubmit,
           textareaRef,

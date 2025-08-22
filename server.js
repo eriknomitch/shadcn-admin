@@ -14,6 +14,17 @@ const port = 3001
 app.use(cors())
 app.use(express.json())
 
+// Error handling for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error)
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled Rejection:', error)
+  process.exit(1)
+})
+
 // Chat endpoint
 app.post('/api/chat', async (req, res) => {
   try {
@@ -71,27 +82,17 @@ app.post('/api/chat', async (req, res) => {
       maxTokens: 2000,
     })
 
-    // Set headers for streaming response
-    res.writeHead(200, {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Transfer-Encoding': 'chunked',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    })
-
-    // Stream the text response
-    for await (const chunk of result.textStream) {
-      res.write(chunk)
-    }
-    
-    res.end()
+    // Return the AI SDK streaming response
+    return result.toResponse()
 
   } catch (error) {
     console.error('Chat API error:', error)
-    res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message
-    })
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error.message
+      })
+    }
   }
 })
 
