@@ -19,7 +19,13 @@ app.post('/api/chat', async (req, res) => {
   try {
     // Get environment variables
     const apiKey = process.env.AI_GATEWAY_API_KEY
-    const model = process.env.AI_MODEL || 'gpt-4'
+    let model = process.env.AI_MODEL || 'gpt-3.5-turbo'
+    
+    // Override invalid models with valid OpenAI models
+    if (model.includes('google/') || model.includes('gemini')) {
+      model = 'gpt-3.5-turbo'
+      console.log('Overriding invalid model with gpt-3.5-turbo')
+    }
 
     if (!apiKey) {
       return res.status(500).json({ error: 'AI_GATEWAY_API_KEY not configured' })
@@ -32,7 +38,26 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Invalid messages format' })
     }
 
-    console.log('Processing chat request with', messages.length, 'messages')
+    // Convert messages to the correct format if needed
+    const formattedMessages = messages.map(msg => {
+      // Handle different message formats
+      if (msg.parts) {
+        // Convert from parts format to content format
+        const textPart = msg.parts.find(part => part.type === 'text')
+        return {
+          role: msg.role,
+          content: textPart ? textPart.text : msg.content || ''
+        }
+      }
+      
+      // Already in correct format
+      return {
+        role: msg.role,
+        content: msg.content || ''
+      }
+    })
+
+    console.log('Processing chat request with', formattedMessages.length, 'messages')
 
     // Configure OpenAI with AI Gateway
     const result = streamText({
@@ -41,35 +66,25 @@ app.post('/api/chat', async (req, res) => {
         // Configure AI Gateway base URL if needed
         // baseURL: 'https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/openai',
       }),
-      messages,
+      messages: formattedMessages,
       temperature: 0.7,
       maxTokens: 2000,
     })
 
-    // Return the streaming response directly
-    const response = result.toDataStreamResponse()
-    
-    // Set appropriate headers for streaming
-    response.headers.forEach((value, key) => {
-      res.setHeader(key, value)
+    // Set headers for streaming response
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Transfer-Encoding': 'chunked',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
     })
-    
-    // Pipe the response
-    const reader = response.body?.getReader()
-    if (reader) {
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          res.write(value)
-        }
-      } finally {
-        reader.releaseLock()
-        res.end()
-      }
-    } else {
-      res.end()
+
+    // Stream the text response
+    for await (const chunk of result.textStream) {
+      res.write(chunk)
     }
+    
+    res.end()
 
   } catch (error) {
     console.error('Chat API error:', error)
