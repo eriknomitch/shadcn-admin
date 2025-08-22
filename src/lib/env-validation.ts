@@ -1,10 +1,4 @@
 // Environment variable validation utilities
-import { z } from 'zod'
-
-const envSchema = z.object({
-  AI_GATEWAY_API_KEY: z.string().min(1, 'AI_GATEWAY_API_KEY is required'),
-  AI_MODEL: z.string().min(1, 'AI_MODEL is required'),
-})
 
 export function validateClientEnv() {
   try {

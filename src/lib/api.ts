@@ -1,5 +1,5 @@
 // API utilities for server-side functionality
-import type { Message } from '@ai-sdk/react'
+import type { UIMessage } from '@ai-sdk/react'
 
 // Environment validation
 function validateEnv() {
@@ -18,7 +18,7 @@ function validateEnv() {
 }
 
 // Chat API endpoint for development
-export async function callChatAPI(messages: Message[]): Promise<Response> {
+export async function callChatAPI(messages: UIMessage[]): Promise<Response> {
   // In development, we'll call a local API endpoint
   // In production, this would be handled by a proper server
   
