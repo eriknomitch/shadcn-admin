@@ -82,8 +82,8 @@ app.post('/api/chat', async (req, res) => {
       maxTokens: 2000,
     })
 
-    // Return the AI SDK streaming response
-    return result.toResponse()
+    // Stream the response to Express response object
+    result.pipeTextStreamToResponse(res)
 
   } catch (error) {
     console.error('Chat API error:', error)

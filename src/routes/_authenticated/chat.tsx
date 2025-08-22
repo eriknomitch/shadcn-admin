@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import {
   ChatContainerContent,
@@ -110,68 +111,57 @@ function ChatPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Demo chat state for showcasing prompt-kit components
-  const [messages, setMessages] = useState<ExtendedMessage[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content:
-        "Hello! How can I help you today? I can assist with coding, analysis, research, and much more.",
-      timestamp: new Date(),
-      reasoning:
-        "I should provide a friendly greeting and let the user know about my capabilities to encourage engagement.",
-      sources: [
-        {
-          title: "AI Assistant Capabilities",
-          url: "https://example.com/ai-capabilities",
-          description: "Overview of AI assistant features and functionality",
-        },
-      ],
-    },
-  ]);
-
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-
-  // Mock handleSubmit for demo purposes
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-
-    if (!input?.trim()) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    // Add user message
-    const userMessage: ExtendedMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-
-    // Simulate AI response after delay
-    setTimeout(() => {
-      const aiMessage: ExtendedMessage = {
-        id: (Date.now() + 1).toString(),
+  // Initialize useChat hook for real AI integration
+  const {
+    messages: chatMessages,
+    sendMessage,
+    status,
+    error: chatError,
+  } = useChat({
+    messages: [
+      {
+        id: "1",
         role: "assistant",
-        content:
-          `Thank you for your message: "${input}". This is a demo response showcasing the prompt-kit components. In a real implementation, this would connect to your AI service.`,
-        timestamp: new Date(),
-        reasoning:
-          "I should acknowledge the user's input and provide a helpful response while indicating this is a demo.",
-      };
+        parts: [
+          {
+            type: "text",
+            text: "Hello! How can I help you today? I can assist with coding, analysis, research, and much more.",
+          },
+        ],
+      },
+    ],
+  });
 
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsLoading(false);
-    }, 1500);
-  };
+  // Manual input state management since useChat doesn't provide input handling
+  const [input, setInput] = useState("");
+  
+  // Derive loading state from chat status
+  const isLoading = status === 'submitted' || status === 'streaming';
 
-  const extendedMessages = messages;
+  // Convert AI SDK messages to ExtendedMessage format for UI compatibility
+  const extendedMessages: ExtendedMessage[] = chatMessages.map((msg) => {
+    // Extract text content from message parts
+    const textParts = msg.parts?.filter((part: any) => part.type === 'text') || [];
+    const content = textParts.map((part: any) => part.text).join('') || '';
+
+    return {
+      id: msg.id,
+      role: msg.role as "user" | "assistant" | "system",
+      content,
+      timestamp: new Date(),
+      // Add mock enhanced features for demo - these could be extracted from content in real implementation
+      ...(msg.role === "assistant" && {
+        reasoning: "AI reasoning process would be displayed here in a real implementation.",
+        sources: [
+          {
+            title: "AI Knowledge Base",
+            url: "https://example.com/knowledge",
+            description: "Information from AI training data",
+          },
+        ],
+      }),
+    };
+  });
 
   const suggestedPrompts = [
     "Explain a complex concept",
@@ -190,22 +180,22 @@ function ChatPage() {
 
     if (!input?.trim()) return;
 
-    // Add file info to input if files are uploaded
-    if (uploadedFiles.length > 0) {
-      const contentWithFiles = input +
-        `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map((f) => f.name).join(", ")
-        }`;
-      setInput(contentWithFiles);
-      setUploadedFiles([]);
+    // Prepare message content
+    let messageContent = input;
 
-      // Use setTimeout to allow the input update to take effect
-      setTimeout(() => {
-        handleSubmit?.(e);
-      }, 0);
-    } else {
-      // Use the AI SDK's handleSubmit directly
-      handleSubmit?.(e);
+    // Add file info to message if files are uploaded
+    if (uploadedFiles.length > 0) {
+      messageContent += `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map((f) => f.name).join(", ")}`;
+      setUploadedFiles([]);
     }
+
+    // Send message using AI SDK
+    sendMessage({
+      text: messageContent,
+    });
+
+    // Clear input
+    setInput("");
   };
 
   const handleCopyMessage = (content: string) => {
@@ -264,10 +254,12 @@ function ChatPage() {
             )}
 
             {/* Chat Errors */}
-            {error && (
+            {chatError && (
               <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-2 rounded-lg">
                 <p className="font-medium">Chat Error</p>
-                <p className="text-sm">{error.message}</p>
+                <p className="text-sm">
+                  {chatError?.message || "An error occurred while processing your request"}
+                </p>
               </div>
             )}
             {extendedMessages.map((message) => (
@@ -379,7 +371,7 @@ function ChatPage() {
       </div>
 
       {/* Prompt Suggestions */}
-      {messages.length <= 1 && !input.trim() && (
+      {chatMessages.length <= 1 && !input.trim() && (
         <div className="shrink-0 border-t bg-muted/30 p-4">
           <div className="mb-2 text-sm text-muted-foreground font-medium">
             Suggested prompts:
