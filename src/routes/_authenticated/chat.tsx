@@ -125,49 +125,59 @@ function ChatPage() {
         parts: [
           {
             type: "text",
-            text: "Hello! How can I help you today? I can assist with coding, analysis, research, and much more.",
+            text:
+              "Hello! How can I help you today? I can assist with coding, analysis, research, and much more.",
           },
         ],
       },
     ],
     onError: (error) => {
-      console.error('Chat error:', error);
+      console.error("Chat error:", error);
     },
   });
 
   // Manual input state management since useChat doesn't provide input handling
   const [input, setInput] = useState("");
-  
+
   // Derive loading state from chat status
-  const isLoading = status === 'submitted' || status === 'streaming';
+  const isLoading = status === "submitted" || status === "streaming";
 
   // Convert AI SDK messages to ExtendedMessage format for UI compatibility
   const extendedMessages: ExtendedMessage[] = chatMessages.map((msg) => {
     // Extract text content from message parts
-    const textParts = msg.parts?.filter((part: any) => part.type === 'text') || [];
-    const content = textParts.map((part: any) => part.text).join('') || '';
+    const textParts = msg.parts?.filter((part: any) => part.type === "text") ||
+      [];
+    const content = textParts.map((part: any) => part.text).join("") || "";
 
     // Check if this is the initial greeting message
     const isInitialMessage = msg.id === "1" && msg.role === "assistant";
-    
+
     // Extract other parts for advanced features
-    const reasoningParts = msg.parts?.filter((part: any) => part.type === 'reasoning') || [];
-    const sourceParts = msg.parts?.filter((part: any) => part.type === 'source-url') || [];
-    const toolParts = msg.parts?.filter((part: any) => part.type === 'tool') || [];
+    const reasoningParts = msg.parts?.filter((part: any) =>
+      part.type === "reasoning"
+    ) || [];
+    const sourceParts =
+      msg.parts?.filter((part: any) => part.type === "source-url") || [];
+    const toolParts = msg.parts?.filter((part: any) => part.type === "tool") ||
+      [];
 
     return {
       id: msg.id,
       role: msg.role as "user" | "assistant" | "system",
       content,
       timestamp: new Date(),
-      isStreaming: status === 'streaming' && msg.role === 'assistant' && msg.id === chatMessages[chatMessages.length - 1]?.id,
+      isStreaming: status === "streaming" && msg.role === "assistant" &&
+        msg.id === chatMessages[chatMessages.length - 1]?.id,
       // Extract real reasoning if available, otherwise show for initial message only
       ...(reasoningParts.length > 0 && {
-        reasoning: reasoningParts.map((part: any) => part.text || part.reasoning).join('\n'),
+        reasoning: reasoningParts.map((part: any) =>
+          part.text || part.reasoning
+        ).join("\n"),
       }),
       // Add mock reasoning only for initial greeting message
       ...(isInitialMessage && !reasoningParts.length && {
-        reasoning: "I should provide a friendly greeting and let the user know about my capabilities to encourage engagement.",
+        reasoning:
+          "I should provide a friendly greeting and let the user know about my capabilities to encourage engagement.",
       }),
       // Extract real sources if available
       ...(sourceParts.length > 0 && {
@@ -222,7 +232,8 @@ function ChatPage() {
 
     // Add file info to message if files are uploaded
     if (uploadedFiles.length > 0) {
-      messageContent += `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map((f) => f.name).join(", ")}`;
+      messageContent += `\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map((f) => f.name).join(", ")
+        }`;
       setUploadedFiles([]);
     }
 
@@ -268,8 +279,9 @@ function ChatPage() {
 
       {/* Chat Container */}
       <div className="flex-1 relative overflow-hidden">
-        <ChatContainerRoot className="h-full">
-          <ChatContainerContent className="space-y-4 p-4 h-full overflow-y-auto min-h-0">
+        <ChatContainerRoot className="flex flex-col p-4 h-full">
+          <ChatContainerContent className="space-y-4 p-8 overflow-y-auto min-h-0 border border-primary/30 rounded-lg bg-background backdrop-blur-sm supports-[backdrop-filter]:bg-background/95">
+            hello
             {/* Connection Status */}
             {connectionStatus === "connecting" && (
               <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded-lg">
@@ -295,7 +307,8 @@ function ChatPage() {
               <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-2 rounded-lg">
                 <p className="font-medium">Chat Error</p>
                 <p className="text-sm">
-                  {chatError?.message || "An error occurred while processing your request"}
+                  {chatError?.message ||
+                    "An error occurred while processing your request"}
                 </p>
               </div>
             )}
@@ -401,7 +414,9 @@ function ChatPage() {
                   <div className="flex items-center gap-2">
                     <Loader variant="typing" />
                     <span className="text-sm text-muted-foreground">
-                      {status === 'submitted' ? 'Thinking...' : 'AI is responding...'}
+                      {status === "submitted"
+                        ? "Thinking..."
+                        : "AI is responding..."}
                     </span>
                   </div>
                 </div>
@@ -483,11 +498,9 @@ function ChatPage() {
                 className="min-h-[60px]"
               >
                 <PromptInputTextarea
-                  placeholder={
-                    isLoading 
-                      ? "AI is responding..." 
-                      : "Type your message here or drop files to upload..."
-                  }
+                  placeholder={isLoading
+                    ? "AI is responding..."
+                    : "Type your message here or drop files to upload..."}
                   className="resize-none"
                 />
                 <PromptInputActions>
@@ -531,4 +544,3 @@ function ChatPage() {
     </div>
   );
 }
-
