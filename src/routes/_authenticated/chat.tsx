@@ -130,6 +130,9 @@ function ChatPage() {
         ],
       },
     ],
+    onError: (error) => {
+      console.error('Chat error:', error);
+    },
   });
 
   // Manual input state management since useChat doesn't provide input handling
@@ -144,21 +147,55 @@ function ChatPage() {
     const textParts = msg.parts?.filter((part: any) => part.type === 'text') || [];
     const content = textParts.map((part: any) => part.text).join('') || '';
 
+    // Check if this is the initial greeting message
+    const isInitialMessage = msg.id === "1" && msg.role === "assistant";
+    
+    // Extract other parts for advanced features
+    const reasoningParts = msg.parts?.filter((part: any) => part.type === 'reasoning') || [];
+    const sourceParts = msg.parts?.filter((part: any) => part.type === 'source-url') || [];
+    const toolParts = msg.parts?.filter((part: any) => part.type === 'tool') || [];
+
     return {
       id: msg.id,
       role: msg.role as "user" | "assistant" | "system",
       content,
       timestamp: new Date(),
-      // Add mock enhanced features for demo - these could be extracted from content in real implementation
-      ...(msg.role === "assistant" && {
-        reasoning: "AI reasoning process would be displayed here in a real implementation.",
+      isStreaming: status === 'streaming' && msg.role === 'assistant' && msg.id === chatMessages[chatMessages.length - 1]?.id,
+      // Extract real reasoning if available, otherwise show for initial message only
+      ...(reasoningParts.length > 0 && {
+        reasoning: reasoningParts.map((part: any) => part.text || part.reasoning).join('\n'),
+      }),
+      // Add mock reasoning only for initial greeting message
+      ...(isInitialMessage && !reasoningParts.length && {
+        reasoning: "I should provide a friendly greeting and let the user know about my capabilities to encourage engagement.",
+      }),
+      // Extract real sources if available
+      ...(sourceParts.length > 0 && {
+        sources: sourceParts.map((part: any) => ({
+          title: part.title || "Source",
+          url: part.url || "#",
+          description: part.description || "Reference source",
+        })),
+      }),
+      // Add mock sources only for initial greeting message
+      ...(isInitialMessage && !sourceParts.length && {
         sources: [
           {
-            title: "AI Knowledge Base",
-            url: "https://example.com/knowledge",
-            description: "Information from AI training data",
+            title: "AI Assistant Capabilities",
+            url: "https://example.com/ai-capabilities",
+            description: "Overview of AI assistant features and functionality",
           },
         ],
+      }),
+      // Extract real tools if available
+      ...(toolParts.length > 0 && {
+        tools: toolParts.map((part: any) => ({
+          type: part.toolType || "unknown",
+          state: part.state || "output-available",
+          input: part.input || {},
+          output: part.output || {},
+          toolCallId: part.toolCallId || part.id,
+        })),
       }),
     };
   });
@@ -298,12 +335,17 @@ function ChatPage() {
                     )}
 
                   {/* Message Content */}
-                  <MessageContent
-                    markdown
-                    className="prose prose-sm max-w-none"
-                  >
-                    {message.content}
-                  </MessageContent>
+                  <div className="relative">
+                    <MessageContent
+                      markdown
+                      className="prose prose-sm max-w-none"
+                    >
+                      {message.content}
+                    </MessageContent>
+                    {message.isStreaming && (
+                      <span className="inline-block w-2 h-4 ml-1 bg-blue-500 animate-pulse" />
+                    )}
+                  </div>
 
                   {/* Sources */}
                   {message.role === "assistant" && message.sources &&
@@ -356,7 +398,12 @@ function ChatPage() {
                   fallback="AI"
                 />
                 <div className="rounded-lg p-3 text-foreground bg-secondary">
-                  <Loader variant="typing" />
+                  <div className="flex items-center gap-2">
+                    <Loader variant="typing" />
+                    <span className="text-sm text-muted-foreground">
+                      {status === 'submitted' ? 'Thinking...' : 'AI is responding...'}
+                    </span>
+                  </div>
                 </div>
               </Message>
             )}
@@ -436,7 +483,11 @@ function ChatPage() {
                 className="min-h-[60px]"
               >
                 <PromptInputTextarea
-                  placeholder="Type your message here or drop files to upload OK HERE..."
+                  placeholder={
+                    isLoading 
+                      ? "AI is responding..." 
+                      : "Type your message here or drop files to upload..."
+                  }
                   className="resize-none"
                 />
                 <PromptInputActions>

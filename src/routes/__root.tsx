@@ -18,9 +18,11 @@ export const Route = createRootRouteWithContext<{
         <Toaster duration={5000} />
         {import.meta.env.MODE === "development" && (
           <>
-            <ReactQueryDevtools buttonPosition="bottom-left" />
-            {import.meta.env.VITE_ROUTER_DEVTOOLS !== "false" && (
-              <TanStackRouterDevtools position="bottom-right" />
+            {import.meta.env.VITE_ROUTER_DEVTOOLS === "true" && (
+              <>
+                <ReactQueryDevtools buttonPosition="bottom-left" />
+                <TanStackRouterDevtools position="bottom-right" />
+              </>
             )}
           </>
         )}
